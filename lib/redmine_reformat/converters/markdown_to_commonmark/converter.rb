@@ -53,13 +53,8 @@ module RedmineReformat
             unless @silent
               msg = String.new
               msg << "Failed MarkdownToCommonmark '#{reference}' due to #{e.message} - #{e.class}\n"
-              msg << "The text was:\n"
-              msg << "#{'-' * 80}\n"
-              msg << "#{text}\n"
-              msg << "#{'-' * 80}\n"
               STDERR.print msg
             end
-            raise
           end
           restore_macros(converted, macros)
           converted

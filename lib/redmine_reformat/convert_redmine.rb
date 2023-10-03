@@ -32,7 +32,6 @@ module RedmineReformat
 
       scope = scope.limit(BATCHSIZE)
       pluck_cols = [:id, @project_id_col].concat(@ctxcols).concat(@cols)
-
       rows = scope.pluck(*pluck_cols)
       while rows.any?
         row_count = rows.size
@@ -72,16 +71,20 @@ module RedmineReformat
     ITEMS_TO_MIGRATE = [
       Spec.new(Comment, COMMENT_CONTENT_COL),
       Spec.new(Document, :description),
-      Spec.new(Issue, :description, nil, {project_id: :project_id, mkurl: ->(ctx) { "/issues/#{ctx.id}" }}),
-      Spec.new(JournalDetail, [:value, :old_value], 'Issue.description', {
-        joins: [:journal, 'LEFT JOIN issues on issues.id = journals.journalized_id'],
-        where: [property: :attr, prop_key: :description, journals: {journalized_type: :Issue}],
-        project_id: 'issues.project_id',
-        ctxcols: [:journal_id, 'issues.id'],
-        mkurl: ->(ctx) { "/issues/#{ctx.vals['issues.id']}\#change-#{ctx.vals[:journal_id]}" }
+      Spec.new(Issue, :description, nil, {
+        where: ['closed_on IS NULL'],
+        project_id: :project_id, mkurl: ->(ctx) { "/issues/#{ctx.id}" }
       }),
+      # Spec.new(JournalDetail, [:value, :old_value], 'Issue.description', {
+      #   joins: [:journal, 'LEFT JOIN issues on issues.id = journals.journalized_id'],
+      #   where: [property: :attr, prop_key: :description, journals: {journalized_type: :Issue}],
+      #   project_id: 'issues.project_id',
+      #   ctxcols: [:journal_id, 'issues.id'],
+      #   mkurl: ->(ctx) { "/issues/#{ctx.vals['issues.id']}\#change-#{ctx.vals[:journal_id]}" }
+      # }),
       Spec.new(Journal, :notes, nil, {
         joins: "LEFT JOIN issues ON issues.id=journals.journalized_id AND journalized_type = 'Issue'",
+        where: ["issues.closed_on IS NULL"],
         project_id: 'issues.project_id',
         ctxcols: 'issues.id',
         mkurl: ->(ctx) { "/issues/#{ctx.vals['issues.id']}\#change-#{ctx.id}" }
@@ -131,8 +134,8 @@ module RedmineReformat
       @exn.start
       migrate_settings if @exn.master?
       migrate_objects
-      migrate_wiki_versions
-      migrate_custom_values
+      # migrate_wiki_versions
+      # migrate_custom_values
       Setting.text_formatting = @to_formatting if @exn.master? && !@exn.dryrun
       unless @exn.finish(true)
         raise ActiveRecord::Rollback
